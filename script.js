@@ -256,7 +256,6 @@ function copyOutput() {
 
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text)
-      .then(() => alert("Copied to clipboard!"))
       .catch(() => fallbackCopy(text));
   } else {
     fallbackCopy(text);
@@ -272,8 +271,10 @@ function fallbackCopy(text) {
   textarea.select();
 
   try {
-    document.execCommand("copy");
-    alert("Copied to clipboard!");
+    const successful = document.execCommand("copy");
+    if (!successful) {
+      alert("Failed to copy text.");
+    }
   } catch (err) {
     alert("Failed to copy text.");
   }
