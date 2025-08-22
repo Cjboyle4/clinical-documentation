@@ -1,28 +1,73 @@
-
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <title>Medical History Input</title>
+  <!DOCTYPE html>
+  <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <h2>Enter Medical Information</h2>
 
-  <!-- Text input area -->
-  <textarea id="medicalInput" rows="20" cols="80" placeholder="Paste medical history here..."></textarea>
-  <br><br>
+  <!-- Navigation Bar Container -->
+  <div id="nav-bar">
+    <h1>Medical History Tool</h1>
+    <!-- Add navigation links or buttons here -->
+  </div>
 
-  <!-- Submit button -->
-  <button onclick="handleSubmit()">Submit</button>
+  <!-- Main Body Container -->
+  <div id="main-body">
 
-  <!-- Output area -->
-  <h3>Admission and History:</h3>
-  <pre id="output"></pre>
-  <button onclick="copyOutput()">Copy</button>
+    <!-- Input Container -->
+    <div id="input-container">
+      <h2>Enter Medical Information</h2>
+      <textarea id="medicalInput" rows="40" cols="80" placeholder="Paste medical history here..."></textarea>
+      <br><br>
+      <button onclick="handleSubmit()">Submit</button>
+    </div>
 
-  
+    <!-- Output Container -->
+    <div id="output-container">
+
+      <!-- Admission and History Section -->
+      <div id="admit-and-history">
+        <h3>Admission and History:</h3>
+        <div id="admit-and-history-output" class="content"></div>
+        <button onclick="copyOutput('admit-and-history-output')">Copy</button>
+      </div>
+      
+      <!-- Insulin Section -->
+      <div id="insulin">
+        <h3>Insulin:</h3>
+        <div id="insulin-output" class="content"></div>
+        <button onclick="copyOutput('insulin-output')">Copy</button>
+      </div>
+      
+      <!-- Antibiotic Section -->
+      <div id="antibiotic">
+        <h3>Antibiotics:</h3>
+        <div id="antibiotic-output" class="content"></div>
+        <button onclick="copyOutput('antibiotic-output')">Copy</button>
+      </div>
+
+      <!-- Anticoag Section -->
+      <div id="anticoag">
+        <h3>Anticoagulation:</h3>
+        <div id="anticoag-output" class="content"></div>
+        <button onclick="copyOutput('anticoag-output')">Copy</button>
+      </div>
+
+      <!-- CrCl Section -->
+      <div id="crcl">
+        <h3>Creatinine Clearance:</h3>
+        <div id="crcl-output" class="content"></div>
+        <button onclick="copyOutput('crcl-output')">Copy</button>
+      </div>
+
+    </div>
+
+  </div>
+
   <!-- JavaScript -->
   <script src="script.js"></script>
-  </script>
 </body>
 </html>
