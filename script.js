@@ -1,258 +1,776 @@
 function handleSubmit() {
-  const inputText = document.getElementById("medicalInput").value;
-  let sectionHeaders = getSectionHeaders()
-  let sections = extractSections(inputText, sectionHeaders)
-  
-  // parseAdmissionDate(sections)
-  cleanInitialDiagnosis(sections)
-  parseMedicalHistorySection(sections)
-  cleanDiseases(sections)
-  flattenCleanedDiseases(sections)
-  
-  const formattedText = formatSectionsForDisplay(sections, sectionHeaders);
-  document.getElementById("output").textContent = formattedText;
 
-  
-  // const sectionText = extractPastMedicalHistory(inputText);
-  // const parsedEntries = parseMedicalHistorySection(sectionText);
-  // const cleanedEntries = cleanDiseases(parsedEntries);
-  // const pmhLine = formatPMHLine(cleanedEntries);
+    let dataDict = createDataDict()
+    populateDataDict(dataDict)
+    parseName(dataDict)
+    parseAdmissionDate(dataDict)
+    cleanChiefComplaint(dataDict)
+    cleanInitialDiagnosis(dataDict)
+    parseMedicalHistorySection(dataDict)
+    cleanDiseases(dataDict)
+    flattenCleanedDiseases(dataDict)
+    
+    parseAge(dataDict)
+    parseSex(dataDict)
+    parseHeight(dataDict)
+    parseWeight(dataDict)
+    parseBMI(dataDict)
+    parseTemp(dataDict)
+    parseLabs(dataDict)
+    parseGlucosePOC(dataDict)
+    
+    calcCrCl(dataDict)
+    
+    let docDict = populateDocDict(dataDict)
+    processDocDict(docDict)
+    compileDocOutput(docDict)
 
-  // document.getElementById("output").textContent = sectionText;
-  // document.getElementById("output").textContent = JSON.stringify(sections, null, 2);
-  
+    
+    // document.getElementById("admit-and-history-output").textContent = JSON.stringify(dataDict, null, 2);
+
+    // document.getElementById("output").textContent = sectionText;
+    // document.getElementById("output").textContent = JSON.stringify(sections, null, 2);
+
 }
 
-function getSectionHeaders() {
-  const sectionHeaders = {
-    'Admission Date:': 'Admission:',
-    'Chief Complaint:': 'CC:',
-    'Initial Diagnosis:': 'Dx:',
-    'Past Medical History:': 'PMH:'
+function getFormattedDate() {
+  const today = new Date();
+  const month = today.getMonth() + 1; // Months are zero-indexed
+  const day = today.getDate();
+  const year = today.getFullYear();
+
+  const formattedDate = `${month}/${day}/${year}`;
+  return formattedDate;
+}
+
+
+
+function createDataDict () {
+  const dataDict = {
+    
+    name: {
+      epicTitleText: 'EPIC Name:',
+    },
+    admitDate: {
+      epicTitleText: 'EPIC Admission Date:',
+    },
+    cc: {
+      epicTitleText: 'EPIC Chief Complaint:',
+    },
+    admitDx: {
+      epicTitleText: 'EPIC Initial Diagnosis:',
+    },
+    pmh: {
+      epicTitleText: 'EPIC Past Medical History:',
+    },
+    age: {
+      epicTitleText: 'EPIC Age:',
+    },
+    sex: {
+      epicTitleText: 'EPIC Sex:',
+    },
+    height: {
+      epicTitleText: 'EPIC Height:',
+    },
+    weight: {
+      epicTitleText: 'EPIC Weight:',
+    },
+    bmi: {
+      epicTitleText: 'EPIC BMI:',
+    },
+    temp: {
+      epicTitleText: 'EPIC Temperature:',
+    },
+    k: {
+      epicTitleText: 'EPIC Potassium:',
+    },
+    mg: {
+      epicTitleText: 'EPIC Magnesium:',
+    },
+    scr: {
+      epicTitleText: 'EPIC Creatinine:',
+    },
+    hgb: {
+      epicTitleText: 'EPIC Hemoglobin:',
+    },
+    plt: {
+      epicTitleText: 'EPIC Platelet:',
+    },
+    wbc: {
+      epicTitleText: 'EPIC White Blood Cell:',
+    },
+    glucose: {
+      epicTitleText: 'EPIC Glucose:',
+    },
+    glucosePOC: {
+      epicTitleText: 'EPIC Glucose POC:',
+    },
+    crcl: {
+      epicTitleText: 'EPIC Creatinine Clearance:',
+    },
+    ptaMeds: {
+      epicTitleText: 'EPIC PTA Meds:',
+    },
+    ipScheduledMeds: {
+      epicTitleText: 'EPIC Scheduled Meds:',
+    },
+    ipPrnMeds: {
+      epicTitleText: 'EPIC PRN Meds:',
+    },
+    ipHemeMeds: {
+      epicTitleText: 'EPIC Heme Meds:',
+    },
+    ipIdMeds: {
+      epicTitleText: 'EPIC ID Meds:',
+    },
+    ipEndoMeds: {
+      epicTitleText: 'EPIC Endo Meds:',
+    },
   };
   
-  return sectionHeaders;
+  return dataDict;
+  
 }
 
 
-function extractSections(rawText, headers) {
-  const lines = rawText.split(/\r?\n/);
-  const sections = {};
-  const headerKeys = Object.keys(headers); // Extract keys from the headers object
-  let currentHeader = null;
-  let collecting = false;
+
+
+
+function populateDataDict(dataDict) {
+  const inputText = document.getElementById("medicalInput").value;
+  const lines = inputText.split(/\r?\n/);
+
+  // Create a reverse lookup: epicTitleText -> key
+  const titleToKeyMap = {};
+  for (const key in dataDict) {
+    titleToKeyMap[dataDict[key].epicTitleText] = key;
+  }
+
+  let currentKey = null;
 
   for (let line of lines) {
     const trimmedLine = line.trim();
 
-    if (headerKeys.includes(trimmedLine)) {
-      currentHeader = trimmedLine;
-      sections[currentHeader] = [];
-      collecting = true;
+    if (titleToKeyMap.hasOwnProperty(trimmedLine)) {
+      currentKey = titleToKeyMap[trimmedLine];
+      dataDict[currentKey].rawContentArray = []; // Initialize rawContent array
       continue;
     }
 
-    if (collecting) {
-      if (trimmedLine === "") {
-        collecting = false;
-        currentHeader = null;
-      } else if (currentHeader) {
-        sections[currentHeader].push(trimmedLine);
-      }
+    if (currentKey && trimmedLine !== "") {
+      dataDict[currentKey].rawContentArray.push(trimmedLine);
+    } else if (trimmedLine === "") {
+      currentKey = null; // Stop collecting on empty line
     }
   }
-
-  return sections;
 }
 
 
-
-// function extractSections(rawText, headers) {
-//   const lines = rawText.split(/\r?\n/);
-//   const sections = {};
-//   let currentHeader = null;
-//   let collecting = false;
-
-//   for (let line of lines) {
-//     const trimmedLine = line.trim();
-
-//     if (headers.includes(trimmedLine)) {
-//       currentHeader = trimmedLine;
-//       sections[currentHeader] = [];
-//       collecting = true;
-//       continue;
-//     }
-
-//     if (collecting) {
-//       if (trimmedLine === "") {
-//         collecting = false;
-//         currentHeader = null;
-//       } else if (currentHeader) {
-//         sections[currentHeader].push(line.trim());
-//       }
-//     }
-//   }
-
-//   return sections;
-// }
-
-
-function parseAdmissionDate(sections) {
-  const admissionArray = sections["Admission Date:"];
-  if (Array.isArray(admissionArray) && admissionArray.length > 0) {
-    const dateValue = admissionArray[0];
-    sections["Admission Date:"] = [{ admissionDate: dateValue }];
-  }
+function parseName(dataDict) {
+    const rawArray = dataDict.name.rawContentArray;
+    if (Array.isArray(rawArray) && rawArray.length > 0) {
+        dataDict.name.cleanedContentArray = rawArray;
+    }
 }
 
+function parseAdmissionDate(dataDict) {
+    const admissionArray = dataDict.admitDate.rawContentArray;
+    if (Array.isArray(admissionArray) && admissionArray.length > 0) {
+        // const dateValue = admissionArray[0];
+        dataDict.admitDate.cleanedContentArray = admissionArray;
+    }
+}
 
-function cleanInitialDiagnosis(sections) {
-  const diagnosisArray = sections["Initial Diagnosis:"];
-  if (!Array.isArray(diagnosisArray)) return;
+function cleanChiefComplaint (dataDict) {
+  dataDict.cc.cleanedContentArray = dataDict.cc.rawContentArray;
+}
+
+function cleanInitialDiagnosis(dataDict) {
+  const diagnosisArray = dataDict.admitDx.rawContentArray;
 
   const cleanedArray = diagnosisArray.map(item =>
-    item.replace(/\s*\(.*?\)\s*/g, "").trim()
+    item
+      .replace(/\[.*?\]/g, "") // Remove text in square brackets
+      .replace(/\s*\(.*?\)\s*/g, "") // Remove text in parentheses
+      .replace(/\b, initial encounter\b/gi, "") // Remove "initial encounter", case-insensitive
+      .trim()
   );
 
-  sections["Initial Diagnosis:"] = cleanedArray;
+  dataDict.admitDx.cleanedContentArray = cleanedArray;
 }
 
 
 
 
-function parseMedicalHistorySection(sections) {
-  const lines = sections["Past Medical History:"];
-  const entries = [];
-  let i = 0;
+function parseMedicalHistorySection(dataDict) {
+    const lines = dataDict.pmh.rawContentArray;
+    const entries = [];
+    let i = 0;
 
-  while (i < lines.length) {
-    const line = lines[i].trim();
+    while (i < lines.length) {
+        const line = lines[i].trim();
+        
+        
+        if (line.includes("Past Medical History:")) {
+          i++;
+          continue;
+        }
 
-    // Match lines with a colon separating date and disease
-    const match = line.match(/^([^:]+):\s*(.+)$/);
+
+        // Match lines with a colon separating date and disease
+        const match = line.match(/^([^:]+):\s*(.+)$/);
+        if (match) {
+            const date = match[1].trim();
+            const disease = match[2].trim();
+            let comment = null;
+
+            // Check next line for a comment
+            const nextLine = lines[i + 1] ? lines[i + 1].trim() : "";
+            const commentMatch = nextLine.match(/^Comment:\s*(.+)$/);
+            if (commentMatch) {
+                comment = commentMatch[1].trim();
+                i++; // Skip the comment line
+            }
+
+            entries.push({
+                date,
+                disease,
+                comment
+            });
+        }
+
+        i++;
+    }
+
+    dataDict.pmh.pmhDict = entries;
+
+}
+
+
+function flattenCleanedDiseases(dataDict) {
+    const historyArray = dataDict.pmh.pmhDict;
+    if (!Array.isArray(historyArray)) return;
+
+    const cleanedList = historyArray
+        .map(entry => entry.cleanedDisease)
+        .filter(disease => typeof disease === "string" && disease.trim() !== "");
+
+    dataDict.pmh.cleanedContentArray = cleanedList;
+    // sections["Past Medical History:"] = cleanedList;
+}
+
+
+
+
+
+
+function getSectionHeaders() {
+    const sectionHeaders = {
+        'Admission Date:': 'Admission:',
+        'Chief Complaint:': 'CC:',
+        'Initial Diagnosis:': 'Dx:',
+        'Past Medical History:': 'PMH:'
+    };
+
+    return sectionHeaders;
+}
+
+
+
+function extractSections(rawText, headers) {
+    const lines = rawText.split(/\r?\n/);
+    const sections = {};
+    const headerKeys = Object.keys(headers); // Extract keys from the headers object
+    let currentHeader = null;
+    let collecting = false;
+
+    for (let line of lines) {
+        const trimmedLine = line.trim();
+
+        if (headerKeys.includes(trimmedLine)) {
+            currentHeader = trimmedLine;
+            sections[currentHeader] = [];
+            collecting = true;
+            continue;
+        }
+
+        if (collecting) {
+            if (trimmedLine === "") {
+                collecting = false;
+                currentHeader = null;
+            } else if (currentHeader) {
+                sections[currentHeader].push(trimmedLine);
+            }
+        }
+    }
+
+    return sections;
+}
+
+
+
+function cleanDiseases(dataDict) {
+
+    const cleanedHistory = dataDict.pmh.pmhDict.map(entry => {
+        let cleanedDisease = entry.disease
+            .replace(/\s*\(.*?\)\s*/g, " ") // Remove parentheses and content
+            .trim();
+
+        // Handle comma: wrap text after comma in parentheses
+        const commaIndex = cleanedDisease.indexOf(",");
+        if (commaIndex !== -1) {
+            const beforeComma = cleanedDisease.slice(0, commaIndex).trim();
+            const afterComma = cleanedDisease.slice(commaIndex + 1).trim();
+            cleanedDisease = `${beforeComma} (${afterComma})`;
+        }
+
+        // If disease contains 'cancer' and there's a comment, append it in parentheses
+        if (cleanedDisease.toLowerCase().includes("cancer") && entry.comment) {
+            cleanedDisease += ` (${entry.comment.trim()})`;
+        }
+
+        return {
+            ...entry,
+            cleanedDisease
+        };
+    });
+
+    // Save the cleaned array back to the original object
+    dataDict.pmh.pmhDict = cleanedHistory;
+}
+
+
+function parseAge(dataDict) {
+  const ageArray = dataDict.age.rawContentArray;
+
+  if (Array.isArray(ageArray) && ageArray.length > 0) {
+    const ageString = ageArray[0];
+
+    // Extract numeric value from the string
+    const ageValue = parseInt(ageString.match(/\d+/)?.[0], 10);
+
+    // Save as a single-item array
+    dataDict.age.cleanedContentArray = [ageValue];
+  }
+}
+
+
+function parseSex (dataDict) {
+    const sexArray = dataDict.sex.rawContentArray;
+    if (Array.isArray(sexArray) && sexArray.length > 0) {
+        dataDict.sex.cleanedContentArray = sexArray;
+    }
+}
+
+
+function parseHeight(dataDict) {
+  const rawContentArray = dataDict.height.rawContentArray;
+
+  if (Array.isArray(rawContentArray) && rawContentArray.length > 0) {
+    const rawString = rawContentArray[1];
+
+    // Extract the number inside the parentheses
+    const match = rawString.match(/\(([\d.]+)\s*m\)/);
+
     if (match) {
-      const date = match[1].trim();
-      const disease = match[2].trim();
-      let comment = null;
+      const heightValue = parseFloat(match[1]);
+      dataDict.height.cleanedContentArray = [heightValue * 100];
+    }
+  }
+}
 
-      // Check next line for a comment
-      const nextLine = lines[i + 1] ? lines[i + 1].trim() : "";
-      const commentMatch = nextLine.match(/^Comment:\s*(.+)$/);
-      if (commentMatch) {
-        comment = commentMatch[1].trim();
-        i++; // Skip the comment line
+function parseWeight(dataDict) {
+  const rawContentArray = dataDict.weight.rawContentArray;
+
+  if (Array.isArray(rawContentArray) && rawContentArray.length > 0) {
+    const rawString = rawContentArray[1];
+
+    // Extract the numeric value before "kg"
+    const match = rawString.match(/([\d.]+)\s*kg/);
+
+    if (match) {
+      const weightValue = parseFloat(match[1]);
+      dataDict.weight.cleanedContentArray = [weightValue];
+    }
+  }
+}
+
+function parseBMI(dataDict) {
+  const rawContentArray = dataDict.bmi.rawContentArray;
+
+  if (Array.isArray(rawContentArray) && rawContentArray.length > 0) {
+    const rawString = rawContentArray[1];
+
+    // Extract the numeric value before "kg"
+    const match = rawString.match(/([\d.]+)\s*kg/);
+
+    if (match) {
+      const bmiValue = parseFloat(match[1]);
+      dataDict.bmi.cleanedContentArray = [bmiValue]; // Use bmiValue, not bmi
+    }
+  }
+}
+
+
+function parseTemp(dataDict) {
+  const rawContentArray = dataDict.temp.rawContentArray;
+  const rawString = rawContentArray[0];
+
+  // Use regex to extract the number after "Max:" and before "°F"
+  const match = rawString.match(/Max:\s*([\d.]+)\s*°F/);
+  
+  // If a match is found, return the number as a float
+  const maxTempF = match ? parseFloat(match[1]) : null;
+
+  dataDict.temp.cleanedContentArray = [maxTempF]
+
+}
+
+
+
+
+function parseLabs(dataDict) {
+  const labNames = ['k', 'mg', 'scr', 'hgb', 'hct', 'plt', 'wbc', 'glucose'];
+
+  labNames.forEach(lab => {
+    if (dataDict.hasOwnProperty(lab)) {
+      const rawArray = dataDict[lab].rawContentArray;
+
+      if (Array.isArray(rawArray) && rawArray.length > 0) {
+        const rawValueString = rawArray[0].toLowerCase();
+
+        if (rawValueString.includes('no results')) {
+          dataDict[lab].cleanedContentArray = [];
+        } else {
+          // Extract numeric value after colon
+          const match = rawValueString.match(/:\s*([\d.]+)/);
+          if (match) {
+            const value = parseFloat(match[1]);
+            dataDict[lab].cleanedContentArray = [value];
+          } else {
+            // If no match, fallback to empty array or handle as needed
+            dataDict[lab].cleanedContentArray = [];
+          }
+        }
+      }
+    }
+  });
+}
+
+
+function parseGlucosePOC(dataDict) {
+  const rawContentArray = dataDict.glucosePOC.rawContentArray;
+  
+    // Check for "No results available" message
+  if (rawContentArray[0].includes("No results available")) {
+    dataDict.glucosePOC.cleanedContentArray = [];
+    return;
+  }
+  
+  const rawString = rawContentArray[2];
+
+  // Use regex to match all numeric values
+  const cleanedContentArray = rawString.match(/\d+/g).map(Number);
+
+  dataDict.glucosePOC.cleanedContentArray = cleanedContentArray;
+}
+
+
+function calcIBW(dataDict) {
+    const heightInches = dataDict.height.cleanedContentArray[0] / 2.54;
+    const inchesOver60 = heightInches - 60;
+    const ibwHeight = inchesOver60 > 0 ? inchesOver60 : 0;
+    let ibw;
+
+  
+    if (dataDict.sex.cleanedContentArray[0] === 'female') {
+        ibw = 45.5 + (2.3 * ibwHeight);
+    } else {
+        ibw = 50 + (2.3 * ibwHeight);
+    }
+
+    ibw = Math.round(ibw * 100) / 100;
+    
+    return ibw;
+  }
+  
+  
+  
+function calcAdjBW(dataDict, ibw) {
+    const tbw = dataDict.weight.cleanedContentArray[0];
+    let adjBW = ibw + (0.4 * (tbw - ibw));
+
+    adjBW = Math.round(adjBW * 100) / 100;
+    
+    return adjBW;
+  
+  }
+
+function calcCrCl(dataDict) {
+  const tbw = dataDict.weight.cleanedContentArray[0]; // total body weight
+  const ibw = calcIBW(dataDict); // ideal body weight
+  const adjBW = calcAdjBW(dataDict, ibw); // adjusted body weight
+  const sex = dataDict.sex.cleanedContentArray[0]; 
+  const age = dataDict.age.cleanedContentArray[0]; 
+  const scr = dataDict.scr.cleanedContentArray[0]; 
+
+  let calcWt = 0;
+
+  if (tbw < ibw) {
+    calcWt = tbw;
+  } else if (tbw > (ibw * 1.2)) {
+    calcWt = adjBW;
+  } else {
+    calcWt = ibw;
+  }
+  
+  let crcl = ((140 - age) * calcWt) / (scr * 72);
+  if (sex === 'female') {
+    crcl = (crcl * 0.85);
+  }
+  
+  crcl = Math.round(crcl * 10) / 10;
+  
+  // console.log(`tbw ${tbw}, ibw ${ibw}, adjBW ${adjBW}, scr ${scr}, calcWt ${calcWt}, crcl ${crcl}`)
+
+  dataDict.crcl.cleanedContentArray = [crcl]
+
+}
+
+
+function constructRenalSection (dataDict) {
+  const scr = dataDict.scr.cleanedContentArray[0];
+  const crcl = dataDict.crcl.cleanedContentArray[0];
+  let formattedString = ''
+  const date = getFormattedDate();
+  const name = dataDict.name.cleanedContentArray[0];
+  
+  if (crcl <= 30) {
+    formattedString = `${date}: Scr ${scr} mg/dl, CrCl ${crcl} ml/min.  ***. ${name}`;
+  } else {
+    formattedString = `${date}: Scr ${scr} mg/dl, CrCl ${crcl} ml/min.  All meds renally appropriate. ${name}`;
+  }
+  
+  return [formattedString];
+}
+
+
+function constructAnticoagSection (dataDict) {
+  const hgb = dataDict.hgb.cleanedContentArray[0];
+  const plt = dataDict.plt.cleanedContentArray[0];
+  const bmi = dataDict.bmi.cleanedContentArray[0];
+  const crcl = dataDict.crcl.cleanedContentArray[0];
+  const date = getFormattedDate();
+  const name = dataDict.name.cleanedContentArray[0];
+  
+  const formattedString = `${date}: Hgb ${hgb}, Plt ${plt}, BMI ${bmi}, CrCl ${crcl}.  On *** for ***VTE prophylaxis. ${name}`;
+  
+  return [formattedString];
+}
+
+function constructAntibioticSection (dataDict) {
+  const date = getFormattedDate();
+  const name = dataDict.name.cleanedContentArray[0];
+  const wbc = dataDict.wbc.cleanedContentArray[0];
+  const temp = dataDict.temp.cleanedContentArray[0];
+  
+  const formattedString = `${date}: ***, on ***.  WBC ${wbc}, Temp ${temp}, Cx ***. ${name}`;
+  
+  return [formattedString];
+  
+}
+
+
+function constructInsulinSection (dataDict) {
+  const date = getFormattedDate();
+  const name = dataDict.name.cleanedContentArray[0];
+  const glucose = dataDict.glucose.cleanedContentArray;
+  const glucosePOC = dataDict.glucosePOC.cleanedContentArray;
+  let formattedString = ""
+  
+  // Combine the arrays
+  const combinedGlucose = [...glucose, ...glucosePOC];
+  
+  if (combinedGlucose.length === 1) {
+    
+    formattedString = `${date}: Glucose ${combinedGlucose[0]}.  On ***. ${name}`;
+    
+  } else {
+
+    // Find min and max
+    const minGlucose = Math.min(...combinedGlucose);
+    const maxGlucose = Math.max(...combinedGlucose);
+    
+    formattedString = `${date}: Glucose ${minGlucose}-${maxGlucose}.  On ***. ${name}`;
+
+  }
+  
+  return [formattedString];
+  
+}
+
+
+function populateDocDict (dataDict) {
+  const docDict = {
+    admitHx: {
+      webId: 'admit-and-history-output',
+      subsections: {
+        admitDate: {
+          title: 'Admit: ',
+          value: dataDict.admitDate.cleanedContentArray,
+        },
+        cc: {
+          title: 'CC: ',
+          value: dataDict.cc.cleanedContentArray,
+        },
+        admitDx: {
+          title: 'Dx: ',
+          value: dataDict.admitDx.cleanedContentArray,
+        },
+        pmh: {
+          title: 'PMH: ',
+          value: dataDict.pmh.cleanedContentArray,
+        },
+      }
+    },
+    
+    renal: {
+      webId: 'crcl-output',
+      subsections: {
+        renalReview: {
+          title: '',
+          value: constructRenalSection(dataDict),
+        },
+      },
+    },
+    
+    anticoag: {
+      webId: 'anticoag-output',
+      subsections: {
+        anticoagReview: {
+          title: '',
+          value: constructAnticoagSection(dataDict),
+        },
+      },
+    },
+    
+    antibiotic: {
+      webId: 'antibiotic-output',
+      subsections: {
+        anticoagReview: {
+          title: '',
+          value: constructAntibioticSection(dataDict),
+        },
+      },
+    },
+    
+    insulin: {
+      webId: 'insulin-output',
+      subsections: {
+        anticoagReview: {
+          title: '',
+          value: constructInsulinSection(dataDict),
+        },
+      },
+    },
+    
+    
+  }
+  
+  return docDict;
+}
+
+
+// function processDocDict(docDict) {
+//   for (const sectionKey in docDict) {
+//     const section = docDict[sectionKey];
+//     const webId = section.webId;
+
+//     for (const subKey in section.subsections) {
+//       const subsection = section.subsections[subKey];
+//       const title = subsection.title;
+//       let value = subsection.value;
+
+//       // Join array values with commas if it's an array
+//       if (Array.isArray(value)) {
+//         value = value.join(', ');
+//       }
+      
+
+//       // Save the output back into docDict under the subsection
+//       docDict[sectionKey].subsections[subKey]['output'] = title + value;
+      
+//     }
+    
+//   }
+// }
+
+function processDocDict(docDict) {
+  for (const sectionKey in docDict) {
+    const section = docDict[sectionKey];
+    const webId = section.webId;
+
+    for (const subKey in section.subsections) {
+      const subsection = section.subsections[subKey];
+      const title = subsection.title;
+      let value = subsection.value;
+
+      // Check if value is an array and handle based on its length
+      if (Array.isArray(value)) {
+        if (value.length === 1) {
+          value = value[0]; // Single item
+        } else if (value.length > 1) {
+          value = value.join(', '); // Multiple items
+        } else {
+          value = ''; // Empty array
+        }
       }
 
-      entries.push({ date, disease, comment });
+      // Save the output back into docDict under the subsection
+      docDict[sectionKey].subsections[subKey]['output'] = title + value;
+    }
+  }
+}
+
+
+
+
+function compileDocOutput(docDict) {
+  for (const sectionKey in docDict) {
+    const section = docDict[sectionKey];
+    const webId = section.webId;
+    let compiledText = '';
+
+    if (section.subsections) {
+      for (const subKey in section.subsections) {
+        const subsection = section.subsections[subKey];
+
+        if (subsection.output) {
+          compiledText += subsection.output + '\n';
+        }
+      }
     }
 
-    i++;
+    // Update the corresponding HTML element once per section
+    const targetElement = document.getElementById(webId);
+    if (targetElement) {
+      targetElement.innerText = compiledText.trim(); // innerText preserves line breaks
+    } else {
+      console.warn(`Element with ID '${webId}' not found.`);
+    }
+  }
+}
+
+
+function copyOutput(webId) {
+  const element = document.getElementById(webId);
+
+  if (!element) {
+    console.warn(`Element with ID '${webId}' not found.`);
+    return;
   }
 
-  // Replace the original array with the parsed entries
-  sections["Past Medical History:"] = entries;
-
-}
-
-
-
-
-function cleanDiseases(data) {
-  if (!Array.isArray(data["Past Medical History:"])) return;
-
-  const cleanedHistory = data["Past Medical History:"].map(entry => {
-    let cleanedDisease = entry.disease
-      .replace(/\s*\(.*?\)\s*/g, " ")  // Remove parentheses and content
-      .trim();
-
-    // Handle comma: wrap text after comma in parentheses
-    const commaIndex = cleanedDisease.indexOf(",");
-    if (commaIndex !== -1) {
-      const beforeComma = cleanedDisease.slice(0, commaIndex).trim();
-      const afterComma = cleanedDisease.slice(commaIndex + 1).trim();
-      cleanedDisease = `${beforeComma} (${afterComma})`;
-    }
-
-    // If disease contains 'cancer' and there's a comment, append it in parentheses
-    if (cleanedDisease.toLowerCase().includes("cancer") && entry.comment) {
-      cleanedDisease += ` (${entry.comment.trim()})`;
-    }
-
-    return {
-      ...entry,
-      cleanedDisease
-    };
-  });
-
-  // Save the cleaned array back to the original object
-  data["Past Medical History:"] = cleanedHistory;
-}
-
-function flattenCleanedDiseases(sections) {
-  const historyArray = sections["Past Medical History:"];
-  if (!Array.isArray(historyArray)) return;
-
-  const cleanedList = historyArray
-    .map(entry => entry.cleanedDisease)
-    .filter(disease => typeof disease === "string" && disease.trim() !== "");
-
-  sections["Past Medical History:"] = cleanedList;
-}
-
-
-
-
-// function formatSectionsForDisplay(sections) {
-//   let output = "";
-
-//   for (const [key, values] of Object.entries(sections)) {
-//     if (!Array.isArray(values) || values.length === 0) continue;
-
-//     const formattedLine = `${key} ${values.join(", ")}`;
-//     output += formattedLine + "\n"; // double line break between sections
-//   }
-
-//   return output.trim(); // remove trailing newline
-// }
-
-function formatSectionsForDisplay(sections, sectionHeaders) {
-  let output = "";
-
-  for (const [key, values] of Object.entries(sections)) {
-    if (!Array.isArray(values) || values.length === 0) continue;
-
-    // Use the value from sectionHeaders if it exists, otherwise fall back to the original key
-    const displayKey = sectionHeaders[key] || key;
-    const formattedLine = `${displayKey} ${values.join(", ")}`;
-    output += formattedLine + "\n";
-  }
-
-  return output.trim();
-}
-
-
-
-// function copyOutput() {
-//   const outputElement = document.getElementById("output");
-//   const textToCopy = outputElement.textContent;
-
-//   if (navigator.clipboard) {
-//     navigator.clipboard.writeText(textToCopy)
-//       .then(() => {
-//         alert("Copied to clipboard!");
-//       })
-//       .catch(err => {
-//         console.error("Clipboard copy failed:", err);
-//         alert("Failed to copy text.");
-//       });
-//   } else {
-//     alert("Clipboard API not supported in this browser.");
-//   }
-// }
-
-
-function copyOutput() {
-  const text = document.getElementById("output").textContent;
+  const text = element.innerText.trim();
 
   if (navigator.clipboard && window.isSecureContext) {
     navigator.clipboard.writeText(text)
@@ -261,25 +779,4 @@ function copyOutput() {
     fallbackCopy(text);
   }
 }
-
-function fallbackCopy(text) {
-  const textarea = document.createElement("textarea");
-  textarea.value = text;
-  textarea.style.position = "fixed";
-  document.body.appendChild(textarea);
-  textarea.focus();
-  textarea.select();
-
-  try {
-    const successful = document.execCommand("copy");
-    if (!successful) {
-      alert("Failed to copy text.");
-    }
-  } catch (err) {
-    alert("Failed to copy text.");
-  }
-
-  document.body.removeChild(textarea);
-}
-
 
