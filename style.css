@@ -1,0 +1,81 @@
+/* Basic Reset */
+* {
+  margin: 0;
+  padding: 5px;
+  box-sizing: border-box;
+}
+
+/* Reset some default styles */
+body, html {
+  margin: 0;
+  padding: 0;
+  font-family: Arial, sans-serif;
+  font-size: 14px;
+}
+
+/* Navigation Bar */
+#nav-bar {
+  background-color: #2c3e50;
+  color: white;
+  padding: 10px;
+  text-align: center;
+  width: 100%;
+}
+
+/* Main Body Layout */
+#main-body {
+  display: flex;
+  flex-direction: row;
+  padding: 20px;
+  gap: 20px;
+}
+
+/* Input Container */
+#input-container {
+  flex: 1;
+  background-color: #ecf0f1;
+  padding: 20px;
+  border-radius: 8px;
+}
+
+/* Output Container */
+#output-container {
+  flex: 2;
+  background-color: #f9f9f9;
+  padding: 0px;
+  border-radius: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+/* Individual Output Sections */
+#output-container > div {
+  background-color: #ffffff;
+  padding: 15px;
+  border: 1px solid #ccc;
+  border-radius: 6px;
+}
+
+/* Content Styling */
+.content {
+  margin-bottom: 10px;
+  white-space: pre-wrap;
+  background-color: #f0f0f0;
+  padding: 0px;
+  border-radius: 4px;
+}
+
+/* Buttons */
+button {
+  padding: 8px 12px;
+  background-color: #3498db;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #2980b9;
+}
