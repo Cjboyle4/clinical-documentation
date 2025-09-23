@@ -25,7 +25,7 @@ function handleSubmit() {
     processDocDict(docDict)
     compileDocOutput(docDict)
 
-    
+    // console.log(JSON.stringify(dataDict, null, 2))
     // document.getElementById("admit-and-history-output").textContent = JSON.stringify(dataDict, null, 2);
 
     // document.getElementById("output").textContent = sectionText;
@@ -185,6 +185,21 @@ function cleanChiefComplaint (dataDict) {
   dataDict.cc.cleanedContentArray = dataDict.cc.rawContentArray;
 }
 
+// function cleanInitialDiagnosis(dataDict) {
+//   const diagnosisArray = dataDict.admitDx.rawContentArray;
+
+//   const cleanedArray = diagnosisArray.map(item =>
+//     item
+//       .replace(/\[.*?\]/g, "") // Remove text in square brackets
+//       .replace(/\s*\(.*?\)\s*/g, "") // Remove text in parentheses
+//       .replace(/\b, initial encounter\b/gi, "") // Remove "initial encounter", case-insensitive
+//       .trim()
+//   );
+
+//   dataDict.admitDx.cleanedContentArray = cleanedArray;
+// }
+
+
 function cleanInitialDiagnosis(dataDict) {
   const diagnosisArray = dataDict.admitDx.rawContentArray;
 
@@ -193,6 +208,7 @@ function cleanInitialDiagnosis(dataDict) {
       .replace(/\[.*?\]/g, "") // Remove text in square brackets
       .replace(/\s*\(.*?\)\s*/g, "") // Remove text in parentheses
       .replace(/\b, initial encounter\b/gi, "") // Remove "initial encounter", case-insensitive
+      .replace(/\b, unspecified type\b/gi, "") // Remove "unspecified type", case-insensitive
       .trim()
   );
 
@@ -202,58 +218,123 @@ function cleanInitialDiagnosis(dataDict) {
 
 
 
+
+// function parseMedicalHistorySection(dataDict) {
+//     const lines = dataDict.pmh.rawContentArray;
+//     const entries = [];
+//     let i = 0;
+
+//     while (i < lines.length) {
+//         const line = lines[i].trim();
+        
+        
+//         if (line.includes("Past Medical History:")) {
+//           i++;
+//           continue;
+//         }
+
+
+//         // Match lines with a colon separating date and disease
+//         const match = line.match(/^([^:]+):\s*(.+)$/);
+//         if (match) {
+//             const date = match[1].trim();
+//             const disease = match[2].trim();
+//             let comment = null;
+
+//             // Check next line for a comment
+//             const nextLine = lines[i + 1] ? lines[i + 1].trim() : "";
+//             const commentMatch = nextLine.match(/^Comment:\s*(.+)$/);
+//             if (commentMatch) {
+//                 comment = commentMatch[1].trim();
+//                 i++; // Skip the comment line
+//             }
+
+//             entries.push({
+//                 date,
+//                 disease,
+//                 comment
+//             });
+//         }
+
+//         i++;
+//     }
+
+//     dataDict.pmh.pmhDict = entries;
+
+// }
+
+
 function parseMedicalHistorySection(dataDict) {
     const lines = dataDict.pmh.rawContentArray;
     const entries = [];
     let i = 0;
 
+    // Match either a date or "No date:"
+    const entryRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4}|No date):\s*(.+)$/;
+
     while (i < lines.length) {
-        const line = lines[i].trim();
-        
-        
+        let line = lines[i].trim();
+
         if (line.includes("Past Medical History:")) {
-          i++;
-          continue;
+            i++;
+            continue;
         }
 
-
-        // Match lines with a colon separating date and disease
-        const match = line.match(/^([^:]+):\s*(.+)$/);
+        const match = line.match(entryRegex);
         if (match) {
             const date = match[1].trim();
-            const disease = match[2].trim();
+            let disease = match[2].trim();
             let comment = null;
 
-            // Check next line for a comment
-            const nextLine = lines[i + 1] ? lines[i + 1].trim() : "";
-            const commentMatch = nextLine.match(/^Comment:\s*(.+)$/);
-            if (commentMatch) {
-                comment = commentMatch[1].trim();
-                i++; // Skip the comment line
+            i++;
+
+            // Accumulate lines until next entry or comment
+            while (i < lines.length) {
+                const nextLine = lines[i].trim();
+
+                // Check for comment
+                const commentMatch = nextLine.match(/^Comment:\s*(.+)$/);
+                if (commentMatch) {
+                    comment = commentMatch[1].trim();
+                    i++;
+                    break;
+                }
+
+                // Check if next line starts a new entry
+                if (entryRegex.test(nextLine)) {
+                    break;
+                }
+
+                // Otherwise, it's part of the disease description
+                disease += " " + nextLine;
+                i++;
             }
 
-            entries.push({
-                date,
-                disease,
-                comment
-            });
+            entries.push({ date, disease, comment });
+        } else {
+            i++;
         }
-
-        i++;
     }
 
     dataDict.pmh.pmhDict = entries;
-
 }
+
 
 
 function flattenCleanedDiseases(dataDict) {
     const historyArray = dataDict.pmh.pmhDict;
     if (!Array.isArray(historyArray)) return;
 
-    const cleanedList = historyArray
+    // const cleanedList = historyArray
+    //     .map(entry => entry.cleanedDisease)
+    //     .filter(disease => typeof disease === "string" && disease.trim() !== "");
+    
+    const cleanedList = Array.from(new Set(
+      historyArray
         .map(entry => entry.cleanedDisease)
-        .filter(disease => typeof disease === "string" && disease.trim() !== "");
+        .filter(disease => typeof disease === "string" && disease.trim() !== "")
+    ));
+
 
     dataDict.pmh.cleanedContentArray = cleanedList;
     // sections["Past Medical History:"] = cleanedList;
@@ -309,34 +390,78 @@ function extractSections(rawText, headers) {
 
 
 
+// function cleanDiseases(dataDict) {
+
+//     const cleanedHistory = dataDict.pmh.pmhDict.map(entry => {
+//         let cleanedDisease = entry.disease
+//             .replace(/\s*\(.*?\)\s*/g, " ") // Remove parentheses and content
+//             .trim();
+
+//         // Handle comma: wrap text after comma in parentheses
+//         const commaIndex = cleanedDisease.indexOf(",");
+//         if (commaIndex !== -1) {
+//             const beforeComma = cleanedDisease.slice(0, commaIndex).trim();
+//             const afterComma = cleanedDisease.slice(commaIndex + 1).trim();
+//             cleanedDisease = `${beforeComma} (${afterComma})`;
+//         }
+
+//         // If disease contains 'cancer' and there's a comment, append it in parentheses
+//         if (cleanedDisease.toLowerCase().includes("cancer") && entry.comment) {
+//             cleanedDisease += ` (${entry.comment.trim()})`;
+//         }
+
+//         return {
+//             ...entry,
+//             cleanedDisease
+//         };
+//     });
+
+//     // Save the cleaned array back to the original object
+//     dataDict.pmh.pmhDict = cleanedHistory;
+// }
+
+
+
 function cleanDiseases(dataDict) {
+  const replaceDict = pmhReplaceDict();
 
-    const cleanedHistory = dataDict.pmh.pmhDict.map(entry => {
-        let cleanedDisease = entry.disease
-            .replace(/\s*\(.*?\)\s*/g, " ") // Remove parentheses and content
-            .trim();
+  const cleanedHistory = dataDict.pmh.pmhDict.map(entry => {
+    let diseaseText = entry.disease;
 
-        // Handle comma: wrap text after comma in parentheses
-        const commaIndex = cleanedDisease.indexOf(",");
-        if (commaIndex !== -1) {
-            const beforeComma = cleanedDisease.slice(0, commaIndex).trim();
-            const afterComma = cleanedDisease.slice(commaIndex + 1).trim();
-            cleanedDisease = `${beforeComma} (${afterComma})`;
+    // Step 1: Replace disease name if it matches any value in the dictionary
+    for (const [key, values] of Object.entries(replaceDict)) {
+      for (const value of values) {
+        if (diseaseText.includes(value)) {
+          diseaseText = key;
+          break; // Stop checking once a match is found
         }
+      }
+    }
 
-        // If disease contains 'cancer' and there's a comment, append it in parentheses
-        if (cleanedDisease.toLowerCase().includes("cancer") && entry.comment) {
-            cleanedDisease += ` (${entry.comment.trim()})`;
-        }
+    // Step 2: Clean parentheses
+    let cleanedDisease = diseaseText.replace(/\s*\(.*?\)\s*/g, " ").trim();
 
-        return {
-            ...entry,
-            cleanedDisease
-        };
-    });
+    // Step 3: Handle comma formatting
+    const commaIndex = cleanedDisease.indexOf(",");
+    if (commaIndex !== -1) {
+      const beforeComma = cleanedDisease.slice(0, commaIndex).trim();
+      const afterComma = cleanedDisease.slice(commaIndex + 1).trim();
+      cleanedDisease = `${beforeComma} (${afterComma})`;
+    }
 
-    // Save the cleaned array back to the original object
-    dataDict.pmh.pmhDict = cleanedHistory;
+    // Step 4: Append comment if disease contains 'cancer'
+    if (cleanedDisease.toLowerCase().includes("cancer") && entry.comment) {
+      cleanedDisease += ` (${entry.comment.trim()})`;
+    }
+
+    return {
+      ...entry,
+      cleanedDisease
+    };
+  });
+
+  // Save the cleaned array back to the original object
+  dataDict.pmh.pmhDict = cleanedHistory;
 }
 
 
