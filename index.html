@@ -23,6 +23,7 @@
       <textarea id="medicalInput" rows="40" cols="80" placeholder="Paste medical info here..."></textarea>
       <br><br>
       <button onclick="handleSubmit()">Submit</button>
+      <button onclick="clearTextarea()">Clear</button>
     </div>
 
     <!-- Output Container -->
@@ -33,6 +34,13 @@
         <h3>Admission and History:</h3>
         <div id="admit-and-history-output" class="content"></div>
         <button onclick="copyOutput('admit-and-history-output')">Copy</button>
+      </div>
+      
+      <!-- Anticonvulsant Section -->
+      <div id="anticonvulsant">
+        <h3>Anticonvulsant:</h3>
+        <div id="anticonvulsant-output" class="content"></div>
+        <button onclick="copyOutput('anticonvulsant-output')">Copy</button>
       </div>
       
       <!-- Insulin Section -->
@@ -55,6 +63,14 @@
         <div id="anticoag-output" class="content"></div>
         <button onclick="copyOutput('anticoag-output')">Copy</button>
       </div>
+      
+      <!-- Antiarrhythmic Section -->
+      <div id="antiarrhythmic">
+        <h3>Antiarrhythmics:</h3>
+        <div id="antiarrhythmic-output" class="content"></div>
+        <button onclick="copyOutput('antiarrhythmic-output')">Copy</button>
+      </div>
+    
 
       <!-- CrCl Section -->
       <div id="crcl">
