@@ -1,3 +1,9 @@
+
+function clearTextarea() {
+    document.getElementById("medicalInput").value = "";
+}
+
+
 function handleSubmit() {
 
     let dataDict = createDataDict()
@@ -6,6 +12,7 @@ function handleSubmit() {
     parseAdmissionDate(dataDict)
     cleanChiefComplaint(dataDict)
     cleanInitialDiagnosis(dataDict)
+    cleanProcedures(dataDict)
     parseMedicalHistorySection(dataDict)
     cleanDiseases(dataDict)
     flattenCleanedDiseases(dataDict)
@@ -18,6 +25,7 @@ function handleSubmit() {
     parseTemp(dataDict)
     parseLabs(dataDict)
     parseGlucosePOC(dataDict)
+    parseEKG(dataDict)
     
     calcCrCl(dataDict)
     
@@ -25,7 +33,7 @@ function handleSubmit() {
     processDocDict(docDict)
     compileDocOutput(docDict)
 
-    // console.log(JSON.stringify(dataDict, null, 2))
+    console.log(JSON.stringify(dataDict, null, 2))
     // document.getElementById("admit-and-history-output").textContent = JSON.stringify(dataDict, null, 2);
 
     // document.getElementById("output").textContent = sectionText;
@@ -60,6 +68,9 @@ function createDataDict () {
     admitDx: {
       epicTitleText: 'EPIC Initial Diagnosis:',
     },
+    procedures: {
+      epicTitleText: 'EPIC Procedures:',
+    },
     pmh: {
       epicTitleText: 'EPIC Past Medical History:',
     },
@@ -93,6 +104,9 @@ function createDataDict () {
     hgb: {
       epicTitleText: 'EPIC Hemoglobin:',
     },
+    hct: {
+      epicTitleText: 'EPIC Hematocrit:',
+    },
     plt: {
       epicTitleText: 'EPIC Platelet:',
     },
@@ -104,6 +118,9 @@ function createDataDict () {
     },
     glucosePOC: {
       epicTitleText: 'EPIC Glucose POC:',
+    },
+    ekg: {
+      epicTitleText: 'EPIC EKG:',
     },
     crcl: {
       epicTitleText: 'EPIC Creatinine Clearance:',
@@ -181,8 +198,18 @@ function parseAdmissionDate(dataDict) {
     }
 }
 
-function cleanChiefComplaint (dataDict) {
-  dataDict.cc.cleanedContentArray = dataDict.cc.rawContentArray;
+// function cleanChiefComplaint (dataDict) {
+//   dataDict.cc.cleanedContentArray = dataDict.cc.rawContentArray;
+// }
+
+function cleanChiefComplaint(dataDict) {
+  const rawArray = dataDict.cc.rawContentArray;
+
+  if (rawArray.includes("No chief complaint on file.")) {
+    dataDict.cc.cleanedContentArray = [];
+  } else {
+    dataDict.cc.cleanedContentArray = rawArray;
+  }
 }
 
 // function cleanInitialDiagnosis(dataDict) {
@@ -216,8 +243,26 @@ function cleanInitialDiagnosis(dataDict) {
 }
 
 
+function cleanProcedures(dataDict) {
+  const dataArray = dataDict.procedures.rawContentArray;
+  const cleanedContentArray = [];
 
+  // Check if the first line is "Procedure(s):"
+  if (dataArray.length === 0 || dataArray[0].trim() !== "Procedure(s):") {
+    dataDict.procedures.cleanedContentArray = [];
+    return;
+  }
 
+  // Skip the first line and collect the rest
+  for (let i = 1; i < dataArray.length; i++) {
+    const line = dataArray[i].trim();
+    if (line.length > 0) {
+      cleanedContentArray.push(line.toLowerCase());
+    }
+  }
+
+  dataDict.procedures.cleanedContentArray = cleanedContentArray;
+}
 
 // function parseMedicalHistorySection(dataDict) {
 //     const lines = dataDict.pmh.rawContentArray;
@@ -269,8 +314,11 @@ function parseMedicalHistorySection(dataDict) {
     const entries = [];
     let i = 0;
 
-    // Match either a date or "No date:"
-    const entryRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4}|No date):\s*(.+)$/;
+    // // Match either a date or "No date:"
+    // const entryRegex = /^(\d{1,2}\/\d{1,2}\/\d{2,4}|No date):\s*(.+)$/;
+    
+    // Match anything followed by a colon
+    const entryRegex = /^([^:]+):\s*(.+)$/;
 
     while (i < lines.length) {
         let line = lines[i].trim();
@@ -601,6 +649,46 @@ function parseGlucosePOC(dataDict) {
 }
 
 
+
+function parseEKG(dataDict) {
+  const rawContentArray = dataDict.ekg.rawContentArray;
+  
+
+  // Check for "No results" message
+  const noResultsFound = rawContentArray.some(line =>
+    line.includes("No results found for this or any previous visit")
+  );
+
+  if (noResultsFound) {
+    dataDict.ekg.ekgDict = {};
+    return;
+  }
+
+
+  const ekgValues = {
+    ventricularRate: null,
+    qrsInterval: null,
+    qtInterval: null,
+    qtc: null
+  };
+
+  rawContentArray.forEach(line => {
+    if (line.includes("Ventricular Rate EKG/M")) {
+      ekgValues.ventricularRate = parseInt(line.split(/\s+/).pop());
+    } else if (line.includes("QRS-Interval (MSEC)")) {
+      ekgValues.qrsInterval = parseInt(line.split(/\s+/).pop());
+    } else if (line.includes("QT-Interval (MSEC)")) {
+      ekgValues.qtInterval = parseInt(line.split(/\s+/).pop());
+    } else if (line.includes("QTc")) {
+      ekgValues.qtc = parseInt(line.split(/\s+/).pop());
+    }
+  });
+
+  // Store the extracted values back into dataDict
+  dataDict.ekg.ekgDict = ekgValues;
+}
+
+
 function calcIBW(dataDict) {
     const heightInches = dataDict.height.cleanedContentArray[0] / 2.54;
     const inchesOver60 = heightInches - 60;
@@ -655,6 +743,11 @@ function calcCrCl(dataDict) {
   }
   
   crcl = Math.round(crcl * 10) / 10;
+  
+  if (crcl > 120) {
+    crcl = 120;
+  }
+
   
   // console.log(`tbw ${tbw}, ibw ${ibw}, adjBW ${adjBW}, scr ${scr}, calcWt ${calcWt}, crcl ${crcl}`)
 
@@ -734,6 +827,109 @@ function constructInsulinSection (dataDict) {
   
 }
 
+// function constructAntiarrhythmicSection (dataDict) {
+//   const ekgDict = dataDict.ekg.ekgDict;
+//   const kValue = dataDict.k.cleanedContentArray[0];
+//   const mgValue = dataDict.mg.cleanedContentArray[0];
+  
+//   if (ekgDict and kValue and mgValue) {
+//     const vRate = ekgDict["ventricularRate"];
+//     const qrs = ekgDict["qrsInterval"];
+//     const qt = ekgDict["qtInterval"];
+//     const qtc = ekgDict["qtc"];
+//     formattedString = `${date}: V-Rate ${vRate}, QRS ${qrs}, QT ${qt}, QTc ${qtc}, K ${kValue}, Mg ${mgValue}.  On ***. ${name}`;
+    
+//   } else {
+    
+//     formattedString = `${date}: Glucose ${minGlucose}-${maxGlucose}.  On ***. ${name}`;
+//   }
+// }
+
+function constructAntiarrhythmicSection(dataDict) {
+  const date = getFormattedDate();
+  const name = dataDict.name.cleanedContentArray[0];
+  const ekgDict = dataDict.ekg.ekgDict;
+  const kValue = dataDict.k?.cleanedContentArray?.[0];
+  const mgValue = dataDict.mg?.cleanedContentArray?.[0];
+  // const date = dataDict.date || "Date"; // Replace with actual date logic
+  // const name = dataDict.name || "Name"; // Replace with actual name logic
+
+  let formattedString = `${date}: `;
+  const ekgParts = [];
+  
+  if (kValue !== null && kValue !== undefined) {
+    ekgParts.push(`K ${kValue}`);
+  }
+  if (mgValue !== null && mgValue !== undefined) {
+    ekgParts.push(`Mg ${mgValue}`);
+  }
+  
+  
+  if (ekgDict) {
+    const { ventricularRate, qrsInterval, qtInterval, qtc } = ekgDict;
+
+    if (ventricularRate !== null && ventricularRate !== undefined) {
+      ekgParts.push(`V-Rate ${ventricularRate}`);
+    }
+    if (qrsInterval !== null && qrsInterval !== undefined) {
+      ekgParts.push(`QRS ${qrsInterval}`);
+    }
+    if (qtInterval !== null && qtInterval !== undefined) {
+      ekgParts.push(`QT ${qtInterval}`);
+    }
+    if (qtc !== null && qtc !== undefined) {
+      ekgParts.push(`QTc ${qtc}`);
+    }
+  }
+  
+  formattedString += ekgParts.join(", ") + `. On ***. ${name}`;
+
+  return [formattedString];
+}
+
+function constructAnticonvulsantSection (dataDict) {
+    const date = getFormattedDate();
+    const name = dataDict.name.cleanedContentArray[0];
+    const hgb = dataDict.hgb.cleanedContentArray[0];
+    const hct = dataDict.hct.cleanedContentArray[0];
+    const plt = dataDict.plt.cleanedContentArray[0];
+    const crcl = dataDict.crcl.cleanedContentArray[0];
+
+    
+    const formattedString = `${date}: Hgb ${hgb}, Hct ${hct}, Plt ${plt}, CrCl ${crcl}.  On ***. ${name}`;
+    
+    return [formattedString];
+}
+
+
+
+function constructAdmitAndHistorySection(dataDict) {
+  const sections = {
+    "Admit": dataDict.admitDate.cleanedContentArray,
+    "CC": dataDict.cc.cleanedContentArray,
+    "Dx": dataDict.admitDx.cleanedContentArray,
+    "Sx": dataDict.procedures.cleanedContentArray,
+    "PMH": dataDict.pmh.cleanedContentArray,
+  };
+
+  const joinedSections = {};
+  const outputLines = [];
+
+  for (const [key, array] of Object.entries(sections)) {
+    const joined = array.join(", ");
+    joinedSections[key] = joined;
+
+    // Only include non-empty values in the final output
+    if (joined.length > 0) {
+      outputLines.push(`${key}: ${joined}`);
+    }
+  }
+
+  const summaryString = outputLines.join("\n");
+  return summaryString;
+  
+}
+
 
 function populateDocDict (dataDict) {
   const docDict = {
@@ -741,22 +937,10 @@ function populateDocDict (dataDict) {
       webId: 'admit-and-history-output',
       subsections: {
         admitDate: {
-          title: 'Admit: ',
-          value: dataDict.admitDate.cleanedContentArray,
+          title: '',
+          value: constructAdmitAndHistorySection(dataDict),
         },
-        cc: {
-          title: 'CC: ',
-          value: dataDict.cc.cleanedContentArray,
-        },
-        admitDx: {
-          title: 'Dx: ',
-          value: dataDict.admitDx.cleanedContentArray,
-        },
-        pmh: {
-          title: 'PMH: ',
-          value: dataDict.pmh.cleanedContentArray,
-        },
-      }
+      },
     },
     
     renal: {
@@ -779,6 +963,16 @@ function populateDocDict (dataDict) {
       },
     },
     
+    antiarrhythmic: {
+      webId: 'antiarrhythmic-output',
+      subsections: {
+        anticoagReview: {
+          title: '',
+          value: constructAntiarrhythmicSection(dataDict),
+        },
+      },
+    },
+    
     antibiotic: {
       webId: 'antibiotic-output',
       subsections: {
@@ -795,6 +989,16 @@ function populateDocDict (dataDict) {
         anticoagReview: {
           title: '',
           value: constructInsulinSection(dataDict),
+        },
+      },
+    },
+
+    anticonvulsant: {
+      webId: 'anticonvulsant-output',
+      subsections: {
+        anticoagReview: {
+          title: '',
+          value: constructAnticonvulsantSection(dataDict),
         },
       },
     },
@@ -904,4 +1108,3 @@ function copyOutput(webId) {
     fallbackCopy(text);
   }
 }
-
